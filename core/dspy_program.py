@@ -3,12 +3,22 @@ DSPy-based program for the Narrative Deconstruction Toolkit.
 
 This module implements a robust, production-ready pipeline using DSPy's latest
 best practices: class-based Signatures with proper type hints, Predict modules
-for structured outputs, and native async support through acall() methods.
+for structured outputs, and native async support th            # Handle any exceptions from individual analyses
+            if isinstance(assumptions_result, Exception):
+                print(f"Assumptions analysis failed: {assumptions_result}")
+                assumptions_result = type('obj', (object,), {'assumptions_json': []})()
+
+            if isinstance(sentence_result, Exception):
+                print(f"Sentence analysis failed: {sentence_result}")
+                sentence_result = type('obj', (object,), {'analysis_json': []})()
+
+            if isinstance(omissions_result, Exception):
+                print(f"Omissions analysis failed: {omissions_result}")
+                omissions_result = type('obj', (object,), {'omissions_json': []})())ethods.
 All brittle string parsing has been eliminated in favor of structured JSON outputs.
 """
 
 import dspy
-import json
 import asyncio
 from typing import List, Dict, Any
 from models.analysis import SynthesizedSentence, Omission
@@ -16,84 +26,88 @@ from models.analysis import SynthesizedSentence, Omission
 
 class FoundationalAssumptionsSignature(dspy.Signature):
     """
-    Identify foundational, unstated assumptions embedded in a text.
+    You are an expert in critical theory and logical reasoning. Your task is to
+    identify the foundational, unstated assumptions embedded in a given text.
 
     A foundational assumption is a core belief the author takes for granted,
     assuming the reader will accept it without question. These are often invisible
-    pillars supporting the entire argument.
+    pillars supporting the entire argument. Do not identify surface-level claims.
+    Instead, dig deeper for the fundamental beliefs about the world, society,
+    human nature, or morality that *must* be true for the author's argument to hold.
 
-    Consider epistemological, metaphysical, ethical, and social/political assumptions.
-    Focus on 3-5 of the most significant foundational assumptions.
+    Consider these categories:
+    - **Epistemological:** What does the author assume about the nature of knowledge and truth?
+    - **Metaphysical/Ontological:** What does the author assume about the nature of reality?
+    - **Ethical/Moral:** What does the author assume about what is right and wrong?
+    - **Social/Political:** What does the author assume about how society or power works?
+
+    Identify upto 6 of the most significant foundational assumptions.
     """
     text: str = dspy.InputField(
         desc="The text to analyze for its foundational assumptions."
     )
-    assumptions_json: str = dspy.OutputField(
-        desc="JSON array of 3-5 core assumptions as strings: [\"assumption1\", \"assumption2\", ...]"
+    assumptions_json: list[str] = dspy.OutputField(
+        desc="array of 3-5 core assumptions as strings: [\"assumption1\", \"assumption2\", ...]"
     )
 
 
 class SentenceAnalysisSignature(dspy.Signature):
     """
-    Analyze each sentence in text for bias and rhetorical tactics.
+    You are a meticulous rhetorical analyst and linguistics expert. Your task is to
+    dissect a given text sentence by sentence. For EACH sentence, you will
+    provide a structured analysis covering its bias and any embedded rhetorical tactics.
 
-    For each sentence, provide:
-    1. Bias score (-1.0 to 1.0): -1.0 = extremely negative, 0.0 = neutral, 1.0 = extremely positive
-    2. Justification for the bias score
-    3. Rhetorical tactics with exact phrases, tactic names, explanations, and types
+    **Instructions:**
+    1.  Go through the text and analyze every single sentence.
+    2.  For each sentence, create a `SynthesizedSentence` object.
+    3.  **Bias Score:** Assign a `bias_score` from -1.0 to 1.0.
+        - **-1.0:** Represents extremely negative, hostile, or derogatory bias.
+        - **0.0:** Represents neutral, objective, or purely factual language.
+        - **1.0:** Represents extremely positive, laudatory, or promotional bias.
+        - Provide a concise `justification` for your score, quoting the specific
+          words that signal the bias.
+    4.  **Rhetorical Tactics:** Identify all `tactics` within the sentence.
+        - For each tactic, the `phrase` must be the *exact* substring from the sentence.
+        - Name the `tactic` (e.g., "Appeal to Fear," "Loaded Language," "False Dichotomy").
+        - Provide a clear `explanation` of how the tactic functions in this context.
+        - Classify the `type` of tactic (e.g., 'Emotional Appeal', 'Logical Fallacy', 'Framing').
     """
     text: str = dspy.InputField(
         desc="The text to be analyzed sentence by sentence for bias and tactics."
     )
-    analysis_json: str = dspy.OutputField(
-        desc="JSON array of sentence analysis objects with structure: [{\"sentence\": \"...\", \"bias_score\": 0.0, \"justification\": \"...\", \"tactics\": [{\"phrase\": \"...\", \"tactic\": \"...\", \"explanation\": \"...\", \"type\": \"...\"}]}]"
+    analysis_json: list[SynthesizedSentence] = dspy.OutputField(
+        desc="array of sentence analysis objects with structure: [{\"sentence\": \"...\", \"bias_score\": 0.0, \"justification\": \"...\", \"tactics\": [{\"phrase\": \"...\", \"tactic\": \"...\", \"explanation\": \"...\", \"type\": \"...\"}]}]"
     )
 
 
 class OmissionsAnalysisSignature(dspy.Signature):
     """
-    Identify significant omissions in the text - what is NOT being said.
+    You are an investigative journalist and strategic analyst. Your task is to
+    identify the most significant omissions in a given text.
 
-    Focus on missing perspectives, data/evidence, counterarguments, context,
-    and potential consequences. For each omission, describe its potential impact.
-    Identify 3-5 major omissions.
+    Think about what is NOT being said. What perspectives are missing? What crucial
+    data is absent? What counterarguments are conveniently ignored? An omission
+    is a gap in the narrative that, if filled, could significantly alter a
+    reader's perception.
+
+    Focus on identifying 3 to 5 major omissions by considering:
+    - **Missing Perspectives:** Which relevant stakeholders or affected groups have no voice?
+    - **Missing Data/Evidence:** What claims lack supporting evidence that should exist?
+    - **Missing Counterarguments:** What are the most compelling arguments against the
+      author's position that are not addressed?
+    - **Missing Context:** Is there historical, social, or economic context that is
+      left out, making the narrative misleading?
+    - **Missing Consequences:** Are potential negative outcomes or downsides of the
+      proposed ideas ignored?
+
+    For each omission, describe its potential impact on the reader's understanding.
     """
     text: str = dspy.InputField(
         desc="The text to analyze for significant omissions."
     )
-    omissions_json: str = dspy.OutputField(
-        desc="JSON array of omission objects: [{\"omitted_perspective\": \"...\", \"potential_impact\": \"...\"}]"
+    omissions_json: list[Omission] = dspy.OutputField(
+        desc="array of omission objects: [{\"omitted_perspective\": \"...\", \"potential_impact\": \"...\"}]"
     )
-
-
-def _parse_json_with_fallback(json_str: str, fallback_value: Any, field_name: str) -> Any:
-    """
-    Safely parse JSON output from LLM with fallback handling.
-
-    Args:
-        json_str: The JSON string to parse
-        fallback_value: Value to return if parsing fails
-        field_name: Name of the field for logging
-
-    Returns:
-        Parsed JSON data or fallback value
-    """
-    try:
-        # Clean up common LLM output issues
-        cleaned = json_str.strip()
-        if cleaned.startswith('```json'):
-            cleaned = cleaned[7:]
-        if cleaned.endswith('```'):
-            cleaned = cleaned[:-3]
-        cleaned = cleaned.strip()
-
-        result = json.loads(cleaned)
-        return result
-
-    except (json.JSONDecodeError, AttributeError) as e:
-        print(f"Warning: Failed to parse {field_name} JSON: {e}")
-        print(f"Raw output: {json_str[:200]}...")
-        return fallback_value
 
 
 class DeconstructionPipeline(dspy.Module):
@@ -116,27 +130,26 @@ class DeconstructionPipeline(dspy.Module):
     def _process_assumptions(self, result) -> List[str]:
         """Process assumptions output with fallback."""
         if hasattr(result, 'assumptions_json'):
-            assumptions = _parse_json_with_fallback(
-                result.assumptions_json,
-                ["Analysis temporarily unavailable"],
-                "assumptions"
-            )
-            return assumptions if isinstance(assumptions, list) else [str(assumptions)]
+            assumptions = result.assumptions_json
+            if isinstance(assumptions, list):
+                return assumptions
+            elif isinstance(assumptions, str):
+                return [assumptions]
+            else:
+                return [str(assumptions)]
         return ["Analysis temporarily unavailable"]
 
     def _process_sentence_analysis(self, result, original_text: str) -> List[SynthesizedSentence]:
         """Process sentence analysis output with fallback."""
         if hasattr(result, 'analysis_json'):
-            analysis_data = _parse_json_with_fallback(
-                result.analysis_json,
-                [],
-                "sentence_analysis"
-            )
+            analysis_data = result.analysis_json
 
             if isinstance(analysis_data, list):
                 sentences = []
                 for item in analysis_data:
-                    if isinstance(item, dict):
+                    if isinstance(item, SynthesizedSentence):
+                        sentences.append(item)
+                    elif isinstance(item, dict):
                         try:
                             sentences.append(SynthesizedSentence(**item))
                         except Exception as e:
@@ -167,16 +180,14 @@ class DeconstructionPipeline(dspy.Module):
     def _process_omissions(self, result) -> List[Omission]:
         """Process omissions output with fallback."""
         if hasattr(result, 'omissions_json'):
-            omissions_data = _parse_json_with_fallback(
-                result.omissions_json,
-                [],
-                "omissions"
-            )
+            omissions_data = result.omissions_json
 
             if isinstance(omissions_data, list):
                 omissions = []
                 for item in omissions_data:
-                    if isinstance(item, dict):
+                    if isinstance(item, Omission):
+                        omissions.append(item)
+                    elif isinstance(item, dict):
                         try:
                             omissions.append(Omission(**item))
                         except Exception as e:
