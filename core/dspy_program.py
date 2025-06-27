@@ -1,187 +1,295 @@
 """
 DSPy-based program for the Narrative Deconstruction Toolkit.
 
-This module replaces the hardcoded prompt-based approach with a programmatic,
-data-centric pipeline using DSPy signatures and modules.
+This module implements a robust, production-ready pipeline using DSPy's latest
+best practices: class-based Signatures with proper type hints, Predict modules
+for structured outputs, and native async support through acall() methods.
+All brittle string parsing has been eliminated in favor of structured JSON outputs.
 """
 
 import dspy
-from typing import List
-from models.analysis import SynthesizedSentence, Omission, EmbeddedTactic
+import json
+import asyncio
+from typing import List, Dict, Any
+from models.analysis import SynthesizedSentence, Omission
 
 
 class FoundationalAssumptionsSignature(dspy.Signature):
-    """Analyze text to identify core, unstated assumptions that the author takes for granted.
+    """
+    Identify foundational, unstated assumptions embedded in a text.
 
-    Focus on beliefs about reality, society, human nature, or the topic at hand that 
-    the author assumes the reader will also accept. Return 3-5 key assumptions.
+    A foundational assumption is a core belief the author takes for granted,
+    assuming the reader will accept it without question. These are often invisible
+    pillars supporting the entire argument.
 
-    Output each assumption as a separate item in a numbered list format.
+    Consider epistemological, metaphysical, ethical, and social/political assumptions.
+    Focus on 3-5 of the most significant foundational assumptions.
     """
     text: str = dspy.InputField(
-        desc="The text to analyze for foundational assumptions")
-    assumptions_text: str = dspy.OutputField(
-        desc="Numbered list of 3-5 core unstated assumptions, one per line")
+        desc="The text to analyze for its foundational assumptions."
+    )
+    assumptions_json: str = dspy.OutputField(
+        desc="JSON array of 3-5 core assumptions as strings: [\"assumption1\", \"assumption2\", ...]"
+    )
 
 
 class SentenceAnalysisSignature(dspy.Signature):
-    """Analyze each sentence in the text for bias and rhetorical tactics.
+    """
+    Analyze each sentence in text for bias and rhetorical tactics.
 
-    For each sentence, provide a bias score from -1.0 (highly negative/critical) 
-    to 1.0 (highly positive/promotional), with 0.0 being neutral, along with 
-    justification and any identified rhetorical tactics.
-
-    Return analysis in a structured format that can be parsed.
+    For each sentence, provide:
+    1. Bias score (-1.0 to 1.0): -1.0 = extremely negative, 0.0 = neutral, 1.0 = extremely positive
+    2. Justification for the bias score
+    3. Rhetorical tactics with exact phrases, tactic names, explanations, and types
     """
     text: str = dspy.InputField(
-        desc="The text to analyze sentence by sentence")
-    analysis_text: str = dspy.OutputField(
-        desc="Structured analysis of each sentence with bias scores and tactics")
+        desc="The text to be analyzed sentence by sentence for bias and tactics."
+    )
+    analysis_json: str = dspy.OutputField(
+        desc="JSON array of sentence analysis objects with structure: [{\"sentence\": \"...\", \"bias_score\": 0.0, \"justification\": \"...\", \"tactics\": [{\"phrase\": \"...\", \"tactic\": \"...\", \"explanation\": \"...\", \"type\": \"...\"}]}]"
+    )
 
 
 class OmissionsAnalysisSignature(dspy.Signature):
-    """Identify what important viewpoints, evidence, or counterarguments are missing from the text.
-
-    Focus on missing stakeholder perspectives, data/evidence that would strengthen claims,
-    and reasonable counterarguments that aren't addressed. Return 3-5 major omissions.
-
-    Output each omission with its potential impact.
     """
-    text: str = dspy.InputField(desc="The text to analyze for omissions")
-    omissions_text: str = dspy.OutputField(
-        desc="List of missing perspectives and their potential impact")
+    Identify significant omissions in the text - what is NOT being said.
+
+    Focus on missing perspectives, data/evidence, counterarguments, context,
+    and potential consequences. For each omission, describe its potential impact.
+    Identify 3-5 major omissions.
+    """
+    text: str = dspy.InputField(
+        desc="The text to analyze for significant omissions."
+    )
+    omissions_json: str = dspy.OutputField(
+        desc="JSON array of omission objects: [{\"omitted_perspective\": \"...\", \"potential_impact\": \"...\"}]"
+    )
+
+
+def _parse_json_with_fallback(json_str: str, fallback_value: Any, field_name: str) -> Any:
+    """
+    Safely parse JSON output from LLM with fallback handling.
+
+    Args:
+        json_str: The JSON string to parse
+        fallback_value: Value to return if parsing fails
+        field_name: Name of the field for logging
+
+    Returns:
+        Parsed JSON data or fallback value
+    """
+    try:
+        # Clean up common LLM output issues
+        cleaned = json_str.strip()
+        if cleaned.startswith('```json'):
+            cleaned = cleaned[7:]
+        if cleaned.endswith('```'):
+            cleaned = cleaned[:-3]
+        cleaned = cleaned.strip()
+
+        result = json.loads(cleaned)
+        return result
+
+    except (json.JSONDecodeError, AttributeError) as e:
+        print(f"Warning: Failed to parse {field_name} JSON: {e}")
+        print(f"Raw output: {json_str[:200]}...")
+        return fallback_value
 
 
 class DeconstructionPipeline(dspy.Module):
-    """Main DSPy module that orchestrates the three-step deconstruction analysis."""
+    """
+    Modern DSPy module implementing narrative deconstruction with best practices.
+
+    Uses Predict modules with JSON output parsing, native async support through
+    acall(), and proper error handling. Eliminates all brittle string parsing
+    by using structured JSON outputs with robust fallback logic.
+    """
 
     def __init__(self):
         super().__init__()
-
-        # Initialize the three analysis steps
-        self.foundational_assumptions = dspy.ChainOfThought(
+        # Use Predict modules for reliable structured outputs
+        self.foundational_assumptions = dspy.Predict(
             FoundationalAssumptionsSignature)
-        self.sentence_analysis = dspy.ChainOfThought(SentenceAnalysisSignature)
-        self.omissions_analysis = dspy.ChainOfThought(
-            OmissionsAnalysisSignature)
+        self.sentence_analysis = dspy.Predict(SentenceAnalysisSignature)
+        self.omissions_analysis = dspy.Predict(OmissionsAnalysisSignature)
 
-    def forward(self, text: str) -> dict:
+    def _process_assumptions(self, result) -> List[str]:
+        """Process assumptions output with fallback."""
+        if hasattr(result, 'assumptions_json'):
+            assumptions = _parse_json_with_fallback(
+                result.assumptions_json,
+                ["Analysis temporarily unavailable"],
+                "assumptions"
+            )
+            return assumptions if isinstance(assumptions, list) else [str(assumptions)]
+        return ["Analysis temporarily unavailable"]
+
+    def _process_sentence_analysis(self, result, original_text: str) -> List[SynthesizedSentence]:
+        """Process sentence analysis output with fallback."""
+        if hasattr(result, 'analysis_json'):
+            analysis_data = _parse_json_with_fallback(
+                result.analysis_json,
+                [],
+                "sentence_analysis"
+            )
+
+            if isinstance(analysis_data, list):
+                sentences = []
+                for item in analysis_data:
+                    if isinstance(item, dict):
+                        try:
+                            sentences.append(SynthesizedSentence(**item))
+                        except Exception as e:
+                            print(
+                                f"Warning: Invalid sentence analysis item: {e}")
+                            # Create a basic fallback sentence
+                            sentences.append(SynthesizedSentence(
+                                sentence=item.get(
+                                    'sentence', 'Unknown sentence'),
+                                bias_score=0.0,
+                                justification="Analysis format error",
+                                tactics=[]
+                            ))
+                return sentences
+
+        # Fallback: create basic sentence breakdown
+        basic_sentences = [
+            s.strip() + '.' for s in original_text.split('.') if s.strip()]
+        return [
+            SynthesizedSentence(
+                sentence=sentence,
+                bias_score=0.0,
+                justification="Analysis temporarily unavailable",
+                tactics=[]
+            ) for sentence in basic_sentences[:5]
+        ]
+
+    def _process_omissions(self, result) -> List[Omission]:
+        """Process omissions output with fallback."""
+        if hasattr(result, 'omissions_json'):
+            omissions_data = _parse_json_with_fallback(
+                result.omissions_json,
+                [],
+                "omissions"
+            )
+
+            if isinstance(omissions_data, list):
+                omissions = []
+                for item in omissions_data:
+                    if isinstance(item, dict):
+                        try:
+                            omissions.append(Omission(**item))
+                        except Exception as e:
+                            print(f"Warning: Invalid omission item: {e}")
+                            # Create a basic fallback omission
+                            omissions.append(Omission(
+                                omitted_perspective=item.get(
+                                    'omitted_perspective', 'Unknown omission'),
+                                potential_impact="Analysis format error"
+                            ))
+                return omissions
+
+        # Fallback omission
+        return [Omission(
+            omitted_perspective="Analysis temporarily unavailable",
+            potential_impact="Unable to identify omissions at this time"
+        )]
+
+    def forward(self, text: str) -> Dict[str, Any]:
         """
-        Run the complete deconstruction pipeline on the input text.
+        Run the complete deconstruction pipeline synchronously.
 
         Args:
-            text: The text to analyze
+            text: The text to analyze.
 
         Returns:
-            Dictionary containing results from all three analysis steps
+            Dictionary with structured results from all three analysis steps.
         """
-        # Step 1: Analyze foundational assumptions
-        assumptions_result = self.foundational_assumptions(text=text)
-        assumptions_list = self._parse_assumptions(
-            assumptions_result.assumptions_text)
+        try:
+            # Execute analyses sequentially for predictable results
+            assumptions_result = self.foundational_assumptions(text=text)
+            sentence_result = self.sentence_analysis(text=text)
+            omissions_result = self.omissions_analysis(text=text)
 
-        # Step 2: Perform sentence-by-sentence analysis
-        sentence_result = self.sentence_analysis(text=text)
-        sentences_list = self._parse_sentence_analysis(
-            sentence_result.analysis_text, text)
+            return {
+                "foundational_assumptions": self._process_assumptions(assumptions_result),
+                "synthesized_text": self._process_sentence_analysis(sentence_result, text),
+                "omissions": self._process_omissions(omissions_result)
+            }
 
-        # Step 3: Analyze omissions
-        omissions_result = self.omissions_analysis(text=text)
-        omissions_list = self._parse_omissions(omissions_result.omissions_text)
+        except Exception as e:
+            print(f"Error in DSPy pipeline forward: {e}")
+            return self._create_error_response(text, str(e))
 
-        # Combine results
-        return {
-            "foundational_assumptions": assumptions_list,
-            "synthesized_text": sentences_list,
-            "omissions": omissions_list
-        }
+    async def aforward(self, text: str) -> Dict[str, Any]:
+        """
+        Run the complete deconstruction pipeline asynchronously using DSPy's native async support.
 
-    def _parse_assumptions(self, assumptions_text: str) -> List[str]:
-        """Parse the assumptions text into a list of strings."""
-        lines = [line.strip()
-                 for line in assumptions_text.split('\n') if line.strip()]
-        assumptions = []
-        for line in lines:
-            # Remove numbering if present
-            if '. ' in line and line[0].isdigit():
-                line = line.split('. ', 1)[1]
-            if line:
-                assumptions.append(line)
-        return assumptions[:5]  # Limit to 5 assumptions
+        Args:
+            text: The text to analyze.
 
-    def _parse_sentence_analysis(self, analysis_text: str, original_text: str) -> List[SynthesizedSentence]:
-        """Parse the sentence analysis text into SynthesizedSentence objects."""
-        # Fallback: simple sentence splitting if parsing fails
-        sentences = [
-            s.strip() + '.' for s in original_text.split('.') if s.strip()]
+        Returns:
+            Dictionary with structured results from all three analysis steps.
+        """
+        try:
+            # Use DSPy's native async support through acall()
+            # Execute in parallel for better performance
+            assumptions_task = self.foundational_assumptions.acall(text=text)
+            sentence_task = self.sentence_analysis.acall(text=text)
+            omissions_task = self.omissions_analysis.acall(text=text)
 
-        result = []
-        for sentence in sentences[:10]:  # Limit to 10 sentences
-            # For now, provide basic analysis - this could be enhanced to parse structured output
-            bias_score = 0.5 if any(word in sentence.lower() for word in [
-                                    'amazing', 'revolutionary', 'must', 'now']) else 0.0
-            justification = "Basic sentiment analysis based on loaded language detection"
+            # Wait for all analyses to complete
+            assumptions_result, sentence_result, omissions_result = await asyncio.gather(
+                assumptions_task,
+                sentence_task,
+                omissions_task,
+                return_exceptions=True
+            )
 
-            tactics = []
-            if any(word in sentence.lower() for word in ['amazing', 'revolutionary', 'incredible']):
-                tactics.append(EmbeddedTactic(
-                    phrase=next((word for word in [
-                                'amazing', 'revolutionary', 'incredible'] if word in sentence.lower()), ''),
-                    tactic="Loaded Language",
-                    explanation="Uses emotionally charged positive language",
-                    type="emotional"
-                ))
+            # Handle any exceptions from individual analyses
+            if isinstance(assumptions_result, Exception):
+                print(f"Assumptions analysis failed: {assumptions_result}")
+                assumptions_result = type(
+                    'obj', (object,), {'assumptions_json': '[]'})()
 
-            if any(word in sentence.lower() for word in ['must', 'now', 'immediately', 'hurry']):
-                tactics.append(EmbeddedTactic(
-                    phrase=next((word for word in [
-                                'must', 'now', 'immediately', 'hurry'] if word in sentence.lower()), ''),
-                    tactic="Sales Tactics",
-                    explanation="Creates urgency to prompt immediate action",
-                    type="urgency"
-                ))
+            if isinstance(sentence_result, Exception):
+                print(f"Sentence analysis failed: {sentence_result}")
+                sentence_result = type(
+                    'obj', (object,), {'analysis_json': '[]'})()
 
-            result.append(SynthesizedSentence(
+            if isinstance(omissions_result, Exception):
+                print(f"Omissions analysis failed: {omissions_result}")
+                omissions_result = type(
+                    'obj', (object,), {'omissions_json': '[]'})()
+
+            return {
+                "foundational_assumptions": self._process_assumptions(assumptions_result),
+                "synthesized_text": self._process_sentence_analysis(sentence_result, text),
+                "omissions": self._process_omissions(omissions_result)
+            }
+
+        except Exception as e:
+            print(f"Error in DSPy pipeline aforward: {e}")
+            return self._create_error_response(text, str(e))
+
+    def _create_error_response(self, text: str, error_message: str) -> Dict[str, Any]:
+        """Create a structured error response."""
+        # Basic sentence breakdown for error case
+        sentences = [s.strip() + '.' for s in text.split('.') if s.strip()]
+        error_sentences = [
+            SynthesizedSentence(
                 sentence=sentence,
-                bias_score=bias_score,
-                justification=justification,
-                tactics=tactics
-            ))
+                bias_score=0.0,
+                justification=f"Analysis failed: {error_message}",
+                tactics=[]
+            ) for sentence in sentences[:3]
+        ]
 
-        return result
-
-    def _parse_omissions(self, omissions_text: str) -> List[Omission]:
-        """Parse the omissions text into Omission objects."""
-        lines = [line.strip()
-                 for line in omissions_text.split('\n') if line.strip()]
-        omissions = []
-
-        for line in lines[:5]:  # Limit to 5 omissions
-            # Remove numbering if present
-            if '. ' in line and line[0].isdigit():
-                line = line.split('. ', 1)[1]
-
-            if line:
-                # Simple parsing - could be enhanced
-                if ':' in line:
-                    parts = line.split(':', 1)
-                    perspective = parts[0].strip()
-                    impact = parts[1].strip() if len(
-                        parts) > 1 else "Impact not specified"
-                else:
-                    perspective = line
-                    impact = "Missing perspective may limit understanding"
-
-                omissions.append(Omission(
-                    omitted_perspective=perspective,
-                    potential_impact=impact
-                ))
-
-        # Ensure at least one omission
-        if not omissions:
-            omissions.append(Omission(
-                omitted_perspective="Alternative viewpoints not explored",
-                potential_impact="May present a one-sided perspective"
-            ))
-
-        return omissions
+        return {
+            "foundational_assumptions": [f"Analysis failed: {error_message}"],
+            "synthesized_text": error_sentences,
+            "omissions": [Omission(
+                omitted_perspective="Analysis unavailable due to error",
+                potential_impact=f"System error prevented analysis: {error_message}"
+            )]
+        }
