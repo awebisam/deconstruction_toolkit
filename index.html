@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Deconstruction Toolkit V6</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+
+        .tooltip {
+            position: relative;
+            display: inline;
+            cursor: help;
+        }
+
+        .tooltip .tooltiptext {
+            visibility: hidden;
+            width: 300px;
+            background-color: #111827;
+            color: #fff;
+            text-align: left;
+            border-radius: 6px;
+            padding: 10px 14px;
+            position: absolute;
+            z-index: 10;
+            bottom: 130%;
+            left: 50%;
+            margin-left: -150px;
+            opacity: 0;
+            transition: opacity 0.3s;
+            font-size: 0.875rem;
+            line-height: 1.4rem;
+            border: 1px solid #4b5563;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+        }
+
+        .tooltip:hover .tooltiptext {
+            visibility: visible;
+            opacity: 1;
+        }
+
+        .tactic-highlight {
+            border-bottom: 2px dotted;
+        }
+
+        .tactic-loaded_language {
+            border-color: #f59e0b;
+        }
+
+        /* Amber */
+        .tactic-sales_tactics {
+            border-color: #10b981;
+        }
+
+        /* Green */
+    </style>
+</head>
+
+<body class="bg-gray-900 text-gray-200 flex flex-col items-center min-h-screen p-4 sm:p-6 md:p-8">
+
+    <div class="w-full max-w-4xl">
+        <header class="text-center mb-8">
+            <h1 class="text-3xl sm:text-4xl font-bold text-gray-100">Deconstruction Synthesis Engine</h1>
+            <p class="text-gray-400 mt-2">V6: A Unified Analysis Experience</p>
+        </header>
+
+        <main class="w-full bg-gray-800 border border-gray-700 rounded-lg p-6 shadow-2xl">
+            <div>
+                <label for="text-input" class="block text-lg font-semibold mb-2 text-gray-300">Enter Text for
+                    Synthesis</label>
+                <textarea id="text-input" rows="10"
+                    class="w-full bg-gray-900 border border-gray-600 rounded-md p-4 text-gray-200 focus:ring-2 focus:ring-yellow-500 focus:outline-none transition-shadow"
+                    placeholder="Paste text here..."></textarea>
+                <div class="mt-4 grid grid-cols-2 gap-3">
+                    <button id="analyze-btn"
+                        class="bg-yellow-600 hover:bg-yellow-700 text-white font-bold py-3 px-4 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed">Synthesize</button>
+                    <button id="reset-btn"
+                        class="bg-gray-600 hover:bg-gray-700 text-white font-bold py-3 px-4 rounded-md transition-colors">Reset</button>
+                </div>
+            </div>
+
+            <div id="results-container" class="mt-8">
+                <!-- Unified results view will be rendered here -->
+            </div>
+        </main>
+    </div>
+
+    <script>
+        const textInput = document.getElementById('text-input');
+        const analyzeBtn = document.getElementById('analyze-btn');
+        const resetBtn = document.getElementById('reset-btn');
+        const resultsContainer = document.getElementById('results-container');
+        const API_BASE_URL = 'http://localhost:8000/api/v1';
+
+        analyzeBtn.addEventListener('click', async () => {
+            const inputText = textInput.value.trim();
+            if (!inputText) return alert("Please provide text to analyze.");
+
+            analyzeBtn.disabled = true;
+            analyzeBtn.textContent = 'Synthesizing...';
+            resultsContainer.innerHTML = '<div class="text-center text-gray-400 animate-pulse">Running synthesis... this may take a moment.</div>';
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/synthesize`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ text: inputText, lenses: ["all"] }), // Lenses param is for future-proofing
+                });
+                if (!response.ok) throw new Error(`API Error: ${response.statusText}`);
+                const results = await response.json();
+                renderSynthesisResults(results);
+            } catch (error) {
+                resultsContainer.innerHTML = `<p class="text-center text-red-400">An error occurred: ${error.message}</p>`;
+            } finally {
+                analyzeBtn.disabled = false;
+                analyzeBtn.textContent = 'Synthesize';
+            }
+        });
+
+        resetBtn.addEventListener('click', () => {
+            textInput.value = '';
+            resultsContainer.innerHTML = '';
+        });
+
+        function renderSynthesisResults(results) {
+            resultsContainer.innerHTML = ''; // Clear loading message
+
+            // 1. Render Foundational Assumptions, if they exist
+            if (results.foundational_assumptions && results.foundational_assumptions.length > 0) {
+                const assumptionsContainer = document.createElement('div');
+                assumptionsContainer.className = 'mb-8';
+                let assumptionsHtml = `<h2 class="text-2xl font-bold mb-4 text-gray-100 border-b-2 border-gray-700 pb-2">Foundational Assumptions</h2>`;
+                assumptionsHtml += `<div class="bg-gray-900 p-4 rounded-md border border-gray-700">`;
+                assumptionsHtml += `<p class="text-gray-400 mb-3">The author appears to take these core beliefs for granted:</p>`;
+                results.foundational_assumptions.forEach(assumption => {
+                    assumptionsHtml += `
+                        <div class="bg-gray-800 p-3 rounded-md border border-gray-600 mb-2">
+                            <p class="text-lg text-orange-400">• ${assumption}</p>
+                        </div>`;
+                });
+                assumptionsHtml += `</div>`;
+                assumptionsContainer.innerHTML = assumptionsHtml;
+                resultsContainer.appendChild(assumptionsContainer);
+            }
+
+            // 2. Render the main Synthesized Text
+            const synthesizedTextContainer = document.createElement('div');
+            synthesizedTextContainer.innerHTML = `<h2 class="text-2xl font-bold mb-4 text-gray-100 border-b-2 border-gray-700 pb-2">Synthesized Text Analysis</h2>`;
+            const mainContent = document.createElement('div');
+            mainContent.className = 'bg-gray-900 p-4 rounded-md border border-gray-700 text-base leading-relaxed';
+
+            results.synthesized_text.forEach(item => {
+                const sentenceSpan = document.createElement('span');
+                sentenceSpan.className = 'tooltip';
+
+                // Set background color for bias heatmap
+                const score = item.bias_score;
+                let color = 'transparent';
+                if (score > 0.1) { color = `rgba(239, 68, 68, ${0.1 + score * 0.6})`; }
+                else if (score < -0.1) { color = `rgba(59, 130, 246, ${0.1 + Math.abs(score) * 0.6})`; }
+                sentenceSpan.style.backgroundColor = color;
+
+                // Create inner HTML with highlights for tactics, but WITHOUT tooltips on them
+                let innerHTML = item.sentence;
+                if (item.tactics && item.tactics.length > 0) {
+                    item.tactics.sort((a, b) => b.phrase.length - a.phrase.length).forEach(tactic => {
+                        const escapedPhrase = tactic.phrase.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+                        const regex = new RegExp(escapedPhrase, 'gi');
+                        const tacticClass = `tactic-${tactic.tactic.toLowerCase().replace(' ', '_')}`;
+                        innerHTML = innerHTML.replace(regex, match =>
+                            `<span class="tactic-highlight ${tacticClass}">${match}</span>`
+                        );
+                    });
+                }
+                sentenceSpan.innerHTML = innerHTML + ' ';
+
+                // ** THE FIX **
+                // Build a single, comprehensive tooltip for the whole sentence
+                const tooltipText = document.createElement('span');
+                tooltipText.className = 'tooltiptext';
+
+                let tooltipHTML = `<div class="mb-2"><strong class="text-yellow-400">Bias Score: ${score.toFixed(2)}</strong><br><span class="text-gray-400">${item.justification}</span></div>`;
+
+                if (item.tactics && item.tactics.length > 0) {
+                    tooltipHTML += `<hr class="border-gray-600 my-2">`;
+                    tooltipHTML += `<div><strong class="text-yellow-400">Tactics Detected:</strong></div>`;
+                    item.tactics.forEach(tactic => {
+                        tooltipHTML += `<div class="mt-1"><strong class="font-semibold">${tactic.phrase}</strong>: (${tactic.type}) ${tactic.explanation}</div>`;
+                    });
+                }
+                tooltipText.innerHTML = tooltipHTML;
+                sentenceSpan.appendChild(tooltipText);
+
+                mainContent.appendChild(sentenceSpan);
+            });
+
+            synthesizedTextContainer.appendChild(mainContent);
+            resultsContainer.appendChild(synthesizedTextContainer);
+
+            // 3. Render Omissions, if they exist
+            if (results.omissions && results.omissions.length > 0) {
+                const omissionsContainer = document.createElement('div');
+                omissionsContainer.className = 'mt-8';
+                let omissionsHtml = `<h2 class="text-2xl font-bold mb-4 text-gray-100 border-b-2 border-gray-700 pb-2">Omission Analysis</h2>`;
+                results.omissions.forEach(item => {
+                    omissionsHtml += `
+                        <div class="bg-gray-800 p-4 rounded-md border border-gray-700 mb-3">
+                            <p class="text-lg font-semibold text-purple-400">Missing Perspective: ${item.omitted_perspective}</p>
+                            <p class="text-gray-300 mt-1"><span class="font-medium">Potential Impact:</span> ${item.potential_impact}</p>
+                        </div>`;
+                });
+                omissionsContainer.innerHTML = omissionsHtml;
+                resultsContainer.appendChild(omissionsContainer);
+            }
+        }
+    </script>
+</body>
+
+</html>
