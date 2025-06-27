@@ -7,13 +7,12 @@ from api.v1 import analyze
 
 app = FastAPI(title="Narrative Deconstruction Toolkit API", version="6.0.0")
 
-# Configure CORS
+# Configure CORS - restricting to localhost for development
 app.add_middleware(
     CORSMiddleware,
-    # For production, restrict this to your frontend's domain
-    allow_origins=["*"],
+    allow_origins=["http://localhost:8000", "http://127.0.0.1:8000"],
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST"],
     allow_headers=["*"],
 )
 
@@ -26,8 +25,11 @@ async def health_check():
     """Health check endpoint."""
     return {"status": "healthy", "message": "Narrative Deconstruction Toolkit API V6 - Synthesis Engine is running"}
 
-# Serve static files (your HTML file)
-app.mount("/", StaticFiles(directory=".", html=True), name="static")
+# Serve static files
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
+# Serve the main HTML file at root
+app.mount("/", StaticFiles(directory=".", html=True), name="html")
 
 
 @app.get("/")
@@ -37,4 +39,5 @@ async def read_root():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True, log_level="info")
+    uvicorn.run("main:app", host="0.0.0.0", port=8000,
+                reload=True, log_level="info")

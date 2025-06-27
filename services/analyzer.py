@@ -4,7 +4,6 @@ from core import config, prompts
 from models.analysis import SynthesisResult
 from typing import List
 import asyncio
-import re
 
 client = AzureOpenAI(
     azure_endpoint=config.AZURE_OPENAI_ENDPOINT,
@@ -14,188 +13,242 @@ client = AzureOpenAI(
 
 
 async def run_synthesis_analysis(text: str, lenses: List[str]) -> SynthesisResult:
-    # Note: The 'lenses' parameter is kept for future-proofing, but for now,
-    # the single prompt performs all analyses. We could use it to conditionally
-    # remove parts of the JSON from the final output if needed.
+    """
+    Orchestrates a multi-step analysis approach that breaks down the complex task
+    into simpler, more focused API calls to improve reliability and reduce truncation issues.
+    """
+    try:
+        print("Starting multi-step synthesis analysis...")
+
+        # Step 1: Get foundational assumptions
+        print("Step 1: Analyzing foundational assumptions...")
+        assumptions_data = await _get_foundational_assumptions(text)
+
+        # Step 2: Get sentence-by-sentence analysis
+        print("Step 2: Performing sentence analysis...")
+        sentence_data = await _get_sentence_analysis(text)
+
+        # Step 3: Get omissions analysis
+        print("Step 3: Analyzing omissions...")
+        omissions_data = await _get_omissions_analysis(text)
+
+        # Combine the results
+        combined_result = {
+            "foundational_assumptions": assumptions_data.get("foundational_assumptions", []),
+            "synthesized_text": sentence_data.get("sentence_analysis", []),
+            "omissions": omissions_data.get("omissions", [])
+        }
+
+        print("Successfully completed multi-step analysis")
+        return SynthesisResult(**combined_result)
+
+    except Exception as e:
+        print(f"Error during synthesis analysis: {e}")
+        return _create_error_response(text, str(e))
+
+
+async def _get_foundational_assumptions(text: str) -> dict:
+    """Step 1: Extract foundational assumptions using a focused prompt."""
     try:
         response = client.chat.completions.create(
             model=config.AZURE_OPENAI_DEPLOYMENT_NAME,
             messages=[
-                {"role": "system", "content": prompts.SYNTHESIS_PROMPT},
+                {"role": "system", "content": prompts.FOUNDATIONAL_ASSUMPTIONS_PROMPT},
                 {"role": "user", "content": text},
             ],
             response_format={"type": "json_object"},
             temperature=0.0,
-            max_tokens=8192  # Increased to handle longer responses
+            max_tokens=2048
         )
 
-        raw_response = response.choices[0].message.content
-        print("Raw AI response (first 500 chars):")
-        print(raw_response[:500])
-        print("Raw AI response (last 500 chars):")
-        print(raw_response[-500:])
+        result = _safe_json_parse(
+            response.choices[0].message.content, "foundational assumptions")
+        print(
+            f"Found {len(result.get('foundational_assumptions', []))} foundational assumptions")
+        return result
 
-        # Check if response was truncated
-        if not raw_response.strip().endswith('}'):
-            print("WARNING: Response appears to be truncated!")
-            # Try to fix truncation by adding closing braces
-            raw_response = fix_truncated_json(raw_response)
-
-        try:
-            analysis_data = json.loads(raw_response)
-        except json.JSONDecodeError as json_error:
-            print(f"JSON parsing error: {json_error}")
-            print(
-                f"Error at line {json_error.lineno}, column {json_error.colno}")
-            print("Attempting to fix common JSON issues...")
-
-            # Try to fix common JSON issues
-            fixed_response = fix_json_issues(raw_response)
-            try:
-                analysis_data = json.loads(fixed_response)
-                print("Successfully fixed JSON issues!")
-            except json.JSONDecodeError as second_error:
-                print(f"Could not fix JSON: {second_error}")
-                print("Response was likely truncated. Attempting fallback strategy...")
-                # Use fallback strategy for truncated responses
-                analysis_data = create_fallback_response(text)
-
-        # Debug: Print the structure to understand what's coming back
-        print("Successfully parsed JSON structure")
-
-        # Try to clean up the data before passing to Pydantic
-        cleaned_data = clean_synthesis_data(analysis_data)
-        return SynthesisResult(**cleaned_data)
     except Exception as e:
-        print(f"Error during synthesis analysis: {e}")
-        return SynthesisResult(foundational_assumptions=[], synthesized_text=[], omissions=[])
+        print(f"Error in foundational assumptions analysis: {e}")
+        return {"foundational_assumptions": [f"Analysis error: {str(e)}"]}
 
 
-def clean_synthesis_data(data):
-    """Clean and normalize the AI response data to match our Pydantic models."""
-    cleaned = {}
+async def _get_sentence_analysis(text: str) -> dict:
+    """Step 2: Analyze sentences for bias and tactics using a focused prompt."""
+    try:
+        response = client.chat.completions.create(
+            model=config.AZURE_OPENAI_DEPLOYMENT_NAME,
+            messages=[
+                {"role": "system", "content": prompts.SENTENCE_ANALYSIS_PROMPT},
+                {"role": "user", "content": text},
+            ],
+            response_format={"type": "json_object"},
+            temperature=0.0,
+            max_tokens=4096
+        )
 
-    # Handle foundational_assumptions
-    cleaned["foundational_assumptions"] = data.get(
-        "foundational_assumptions", [])
+        result = _safe_json_parse(
+            response.choices[0].message.content, "sentence analysis")
 
-    # Handle synthesized_text
-    cleaned_sentences = []
-    for sentence_data in data.get("synthesized_text", []):
-        cleaned_sentence = {
-            "sentence": sentence_data.get("sentence", ""),
-            "bias_score": sentence_data.get("bias_score", 0.0),
-            "justification": sentence_data.get("justification", ""),
-            "tactics": []
+        # Validate and clean the sentence analysis data
+        cleaned_result = _clean_sentence_analysis_data(result)
+        sentence_count = len(cleaned_result.get('sentence_analysis', []))
+        print(f"Analyzed {sentence_count} sentences")
+        return cleaned_result
+
+    except Exception as e:
+        print(f"Error in sentence analysis: {e}")
+        # Create a fallback response with basic sentence breakdown
+        sentences = [s.strip() + "." for s in text.split('.') if s.strip()]
+        fallback_analysis = []
+        # Limit to prevent overwhelming response
+        for sentence in sentences[:10]:
+            fallback_analysis.append({
+                "sentence": sentence,
+                "bias_score": 0.0,
+                "justification": f"Analysis error: {str(e)}",
+                "tactics": []
+            })
+        return {"sentence_analysis": fallback_analysis}
+
+
+async def _get_omissions_analysis(text: str) -> dict:
+    """Step 3: Analyze what perspectives or evidence are missing."""
+    try:
+        response = client.chat.completions.create(
+            model=config.AZURE_OPENAI_DEPLOYMENT_NAME,
+            messages=[
+                {"role": "system", "content": prompts.OMISSIONS_ANALYSIS_PROMPT},
+                {"role": "user", "content": text},
+            ],
+            response_format={"type": "json_object"},
+            temperature=0.0,
+            max_tokens=2048
+        )
+
+        result = _safe_json_parse(
+            response.choices[0].message.content, "omissions analysis")
+
+        # Validate and clean the omissions data
+        cleaned_result = _clean_omissions_data(result)
+        omission_count = len(cleaned_result.get('omissions', []))
+        print(f"Identified {omission_count} potential omissions")
+        return cleaned_result
+
+    except Exception as e:
+        print(f"Error in omissions analysis: {e}")
+        return {
+            "omissions": [{
+                "omitted_perspective": "Analysis incomplete due to error",
+                "potential_impact": f"Could not complete omissions analysis: {str(e)}"
+            }]
         }
 
-        # Clean tactics
-        for tactic_data in sentence_data.get("tactics", []):
-            cleaned_tactic = {
-                "phrase": tactic_data.get("phrase", ""),
-                "tactic": tactic_data.get("tactic", "Unknown"),
-                "explanation": tactic_data.get("explanation", ""),
-                "type": tactic_data.get("type", "unknown")
-            }
-            cleaned_sentence["tactics"].append(cleaned_tactic)
 
-        cleaned_sentences.append(cleaned_sentence)
+def _create_error_response(text: str, error_message: str) -> SynthesisResult:
+    """Create a minimal error response when the entire analysis fails."""
+    print(f"Creating error response for: {error_message}")
 
-    cleaned["synthesized_text"] = cleaned_sentences
+    # At minimum, provide a basic sentence breakdown
+    sentences = [s.strip() + "." for s in text.split('.') if s.strip()]
+    basic_sentences = []
 
-    # Handle omissions
-    cleaned_omissions = []
-    for omission_data in data.get("omissions", []):
-        cleaned_omission = {
-            "omitted_perspective": omission_data.get("omitted_perspective", omission_data.get("perspective", "Unknown")),
-            "potential_impact": omission_data.get("potential_impact", omission_data.get("impact", ""))
-        }
-        cleaned_omissions.append(cleaned_omission)
-
-    cleaned["omissions"] = cleaned_omissions
-
-    return cleaned
-
-
-def fix_json_issues(json_string):
-    """Attempt to fix common JSON formatting issues."""
-
-    # Remove any text before the first {
-    start_idx = json_string.find('{')
-    if start_idx > 0:
-        json_string = json_string[start_idx:]
-
-    # Remove any text after the last }
-    end_idx = json_string.rfind('}')
-    if end_idx > 0:
-        json_string = json_string[:end_idx + 1]
-
-    # If the JSON doesn't end with }, it's likely truncated
-    if not json_string.strip().endswith('}'):
-        json_string = fix_truncated_json(json_string)
-
-    # Fix common issues:
-    # 1. Remove trailing commas before closing brackets/braces
-    json_string = re.sub(r',(\s*[}\]])', r'\1', json_string)
-
-    # 2. Fix missing commas between objects (simple case)
-    json_string = re.sub(r'}\s*{', r'},{', json_string)
-
-    # 3. Fix unterminated strings at the end
-    if json_string.count('"') % 2 == 1:
-        # Find the last quote and see if it's at the end
-        last_quote = json_string.rfind('"')
-        if last_quote > len(json_string) - 10:  # If quote is near the end
-            json_string += '"'
-
-    return json_string
-
-
-def fix_truncated_json(json_string):
-    """Attempt to fix a truncated JSON response by properly closing it."""
-    print("Attempting to fix truncated JSON...")
-
-    # Count open vs closed braces and brackets
-    open_braces = json_string.count('{') - json_string.count('}')
-    open_brackets = json_string.count('[') - json_string.count(']')
-
-    # Check if we're in the middle of a string
-    if json_string.count('"') % 2 == 1:
-        # Close the unterminated string
-        json_string += '"'
-
-    # Close any open arrays
-    json_string += ']' * open_brackets
-
-    # Close any open objects
-    json_string += '}' * open_braces
-
-    print(
-        f"Added {open_brackets} closing brackets and {open_braces} closing braces")
-    return json_string
-
-
-def create_fallback_response(text):
-    """Create a minimal fallback response when JSON parsing completely fails."""
-    print("Creating fallback response...")
-
-    # Split text into sentences for basic analysis
-    sentences = [s.strip() for s in text.split('.') if s.strip()]
-
-    synthesized_sentences = []
-    for sentence in sentences[:10]:  # Limit to first 10 sentences
-        synthesized_sentences.append({
-            "sentence": sentence + ".",
+    for sentence in sentences[:5]:  # Limit to first 5 sentences
+        basic_sentences.append({
+            "sentence": sentence,
             "bias_score": 0.0,
-            "justification": "Analysis unavailable due to response truncation",
+            "justification": "Analysis unavailable due to system error",
             "tactics": []
         })
 
-    return {
-        "foundational_assumptions": ["Analysis unavailable due to response truncation"],
-        "synthesized_text": synthesized_sentences,
-        "omissions": [{
+    return SynthesisResult(
+        foundational_assumptions=[f"Analysis failed: {error_message}"],
+        synthesized_text=basic_sentences,
+        omissions=[{
             "omitted_perspective": "Complete analysis unavailable",
-            "potential_impact": "Full synthesis could not be completed due to response length limitations"
+            "potential_impact": f"System error prevented full analysis: {error_message}"
         }]
-    }
+    )
+
+
+def _clean_sentence_analysis_data(data: dict) -> dict:
+    """Clean and validate sentence analysis data to ensure proper structure."""
+    if 'sentence_analysis' not in data:
+        return {'sentence_analysis': []}
+
+    cleaned_sentences = []
+    for item in data['sentence_analysis']:
+        if isinstance(item, dict) and 'sentence' in item:
+            cleaned_item = {
+                'sentence': str(item.get('sentence', '')),
+                'bias_score': float(item.get('bias_score', 0.0)),
+                'justification': str(item.get('justification', '')),
+                'tactics': []
+            }
+
+            # Clean tactics array
+            tactics = item.get('tactics', [])
+            if isinstance(tactics, list):
+                for tactic in tactics:
+                    if isinstance(tactic, dict):
+                        cleaned_tactic = {
+                            'phrase': str(tactic.get('phrase', '')),
+                            'tactic': str(tactic.get('tactic', 'Unknown')),
+                            'explanation': str(tactic.get('explanation', '')),
+                            'type': str(tactic.get('type', 'unknown'))
+                        }
+                        cleaned_item['tactics'].append(cleaned_tactic)
+
+            cleaned_sentences.append(cleaned_item)
+
+    return {'sentence_analysis': cleaned_sentences}
+
+
+def _clean_omissions_data(data: dict) -> dict:
+    """Clean and validate omissions data to ensure proper Pydantic structure."""
+    if 'omissions' not in data:
+        return {'omissions': []}
+
+    cleaned_omissions = []
+    for item in data['omissions']:
+        if isinstance(item, dict):
+            # Handle different possible structures from AI response
+            omitted_perspective = item.get('omitted_perspective') or item.get(
+                'perspective') or item.get('missing_perspective') or 'Unknown perspective'
+            potential_impact = item.get('potential_impact') or item.get(
+                'impact') or item.get('effect') or 'Impact unknown'
+
+            cleaned_omission = {
+                'omitted_perspective': str(omitted_perspective),
+                'potential_impact': str(potential_impact)
+            }
+            cleaned_omissions.append(cleaned_omission)
+
+    return {'omissions': cleaned_omissions}
+
+
+def _safe_json_parse(response_content: str, step_name: str) -> dict:
+    """Safely parse JSON with better error handling for malformed responses."""
+    try:
+        return json.loads(response_content)
+    except json.JSONDecodeError as e:
+        print(f"JSON parsing error in {step_name}: {e}")
+        print(f"Response content (first 500 chars): {response_content[:500]}")
+        print(f"Response content (last 500 chars): {response_content[-500:]}")
+
+        # Try to fix common JSON issues
+        try:
+            # Remove any text before the first {
+            start_idx = response_content.find('{')
+            if start_idx > 0:
+                response_content = response_content[start_idx:]
+
+            # Remove any text after the last }
+            end_idx = response_content.rfind('}')
+            if end_idx > 0:
+                response_content = response_content[:end_idx + 1]
+
+            # Try parsing again
+            return json.loads(response_content)
+        except json.JSONDecodeError:
+            print(f"Could not fix JSON parsing error in {step_name}")
+            return {}
