@@ -1,3 +1,8 @@
+# DEPRECATED: This file contains legacy prompts that are no longer used.
+# The application has been refactored to use DSPy signatures and modules
+# which provide a more programmatic approach to prompt engineering.
+# This file is kept for reference only.
+
 # Simplified prompts for multi-step analysis approach
 
 FOUNDATIONAL_ASSUMPTIONS_PROMPT = """
