@@ -119,9 +119,30 @@ Open your browser and go to `http://localhost:8000`. Prepare to be mildly whelme
 **Response (if it doesn't crash):**
 ```json
 {
-    "foundational_assumptions": ["..."],
-    "synthesized_text": [{...}],
-    "omissions": [{...}]
+    "foundational_assumptions": [
+        "The author assumes the reader is familiar with the basic concepts of the topic."
+    ],
+    "synthesized_text": [
+        {
+            "sentence": "This new product is a revolutionary step forward for the industry.",
+            "bias_score": 0.8,
+            "justification": "The sentence uses strong positive language ('revolutionary', 'step forward') without providing evidence, indicating a strong positive bias.",
+            "tactics": [
+                {
+                    "phrase": "revolutionary step forward",
+                    "tactic": "Loaded Language",
+                    "explanation": "Uses emotionally charged words to influence the reader's perception.",
+                    "type": "framing"
+                }
+            ]
+        }
+    ],
+    "omissions": [
+        {
+            "omitted_perspective": "Potential downsides or risks of the new product.",
+            "potential_impact": "The reader may get an incomplete and overly optimistic view of the product."
+        }
+    ]
 }
 ```
 
@@ -138,4 +159,3 @@ So, here's the deal: **Do whatever you want with it.** Use it, break it, fix it,
 If you're actually using this for something interesting, I'd be curious to hear about it. Not to stop you, but just to understand what weirdass shit you're working on.
 
 ### Coded with vibes by Claude 4, documented by Gemini 2.5 Pro with a little bit of my wit. <br/> I am also wondering why it is in my github LOL.
- 

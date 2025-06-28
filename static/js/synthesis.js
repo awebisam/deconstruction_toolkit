@@ -182,7 +182,6 @@ function createOmissionsSection(omissions) {
     title.className = 'text-2xl font-bold mb-4 text-gray-100 border-b-2 border-gray-700 pb-2';
     title.textContent = 'Omission Analysis';
 
-    // Add the title FIRST
     container.appendChild(title);
 
     omissions.forEach(item => {
