@@ -103,6 +103,14 @@ uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 
 Open your browser and go to `http://localhost:8000`. Prepare to be mildly whelmed.
 
+### Live Demo (For Now)
+
+I've thrown this thing up on Azure, so you can poke it without having to install anything.
+
+**[https://narrativedoomer.azurewebsites.net/](https://narrativedoomer.azurewebsites.net/)**
+
+A word of warning: LLM calls cost money, and I'm not made of it. If this thing gets used even by some people (unlikely) or I find something more interesting to waste my free credits (likely), the site will go down. Send me your condolences if it does.
+
 ### APIs
 
 -   `POST /api/v1/synthesize`: The main endpoint that does all the work.
