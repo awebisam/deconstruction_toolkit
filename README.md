@@ -66,6 +66,10 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
+**2.1. Unsolicited Advice**
+- Try out [uv](https://github.com/astral-sh/uv), it’s a nice tool for managing Python environments and dependencies. 
+    - It’s not required, but it makes life easier. `pip` is here because it's the default and everyone knows it, but `uv` is like the cool kid on the block.
+
 **3. Feed the Beast (Configure .env)**
 
 Copy the template to a new `.env` file.
@@ -74,7 +78,7 @@ Copy the template to a new `.env` file.
 cp .env.template .env
 ```
 
-Now, open `.env` and fill in your Azure secrets. Don't commit this file unless you enjoy leaking credentials, you might as well post it on reddit for fun.
+Now, open `.env` and fill in your Azure secrets(might have to pay $$$). Don't commit this file unless you enjoy leaking credentials, you might as well post it on reddit for fun.
 
 ```env
 AZURE_OPENAI_ENDPOINT=https://your-resource-name.openai.azure.com/
