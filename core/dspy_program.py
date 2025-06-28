@@ -1,21 +1,5 @@
 """
 DSPy-based program for the Narrative Deconstruction Toolkit.
-
-This module implements a robust, production-ready pipeline using DSPy's latest
-best practices: class-based Signatures with proper type hints, Predict modules
-for structured outputs, and native async support th            # Handle any exceptions from individual analyses
-            if isinstance(assumptions_result, Exception):
-                print(f"Assumptions analysis failed: {assumptions_result}")
-                assumptions_result = type('obj', (object,), {'assumptions_json': []})()
-
-            if isinstance(sentence_result, Exception):
-                print(f"Sentence analysis failed: {sentence_result}")
-                sentence_result = type('obj', (object,), {'analysis_json': []})()
-
-            if isinstance(omissions_result, Exception):
-                print(f"Omissions analysis failed: {omissions_result}")
-                omissions_result = type('obj', (object,), {'omissions_json': []})())ethods.
-All brittle string parsing has been eliminated in favor of structured JSON outputs.
 """
 
 import dspy
@@ -112,11 +96,7 @@ class OmissionsAnalysisSignature(dspy.Signature):
 
 class DeconstructionPipeline(dspy.Module):
     """
-    Modern DSPy module implementing narrative deconstruction with best practices.
-
-    Uses Predict modules with JSON output parsing, native async support through
-    acall(), and proper error handling. Eliminates all brittle string parsing
-    by using structured JSON outputs with robust fallback logic.
+    DSPy module implementing narrative deconstruction.
     """
 
     def __init__(self):
@@ -243,8 +223,6 @@ class DeconstructionPipeline(dspy.Module):
             Dictionary with structured results from all three analysis steps.
         """
         try:
-            # Use DSPy's native async support through acall()
-            # Execute in parallel for better performance
             assumptions_task = self.foundational_assumptions.acall(text=text)
             sentence_task = self.sentence_analysis.acall(text=text)
             omissions_task = self.omissions_analysis.acall(text=text)
