@@ -19,7 +19,7 @@ diskcache==5.6.3
 distro==1.9.0
 dnspython==2.7.0
 dspy==2.6.27
-dspy-ai==2.5.14
+dspy-ai==2.6.27
 email_validator==2.2.0
 fastapi==0.115.13
 fastapi-cli==0.0.7
