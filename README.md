@@ -34,9 +34,6 @@ deconstruction_toolkit/
 │   └── analysis.py            # Pydantic models to pretend we're organized
 ├── services/
 │   └── analyzer.py            # The main brain that orchestrates the analysis
-└── static/
-    └── js/
-        └── synthesis.js       # The JavaScript that makes the frontend do stuff
 ```
 
 ### What You'll Need to Run This Mess
@@ -115,8 +112,7 @@ Open your browser and go to `http://localhost:8000`. Prepare to be mildly whelme
 **Request:**
 ```json
 {
-    "text": "Your text to analyze...",
-    "lenses": ["all"]
+    "text": "Your text to analyze..."
 }
 ```
 

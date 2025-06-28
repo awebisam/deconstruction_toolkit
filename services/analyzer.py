@@ -42,7 +42,7 @@ def _get_pipeline() -> DeconstructionPipeline:
     return _pipeline
 
 
-async def run_synthesis_analysis(text: str, lenses: List[str]) -> SynthesisResult:
+async def run_synthesis_analysis(text: str) -> SynthesisResult:
     """
     Runs the DSPy-based deconstruction analysis pipeline asynchronously.
 
@@ -51,7 +51,6 @@ async def run_synthesis_analysis(text: str, lenses: List[str]) -> SynthesisResul
 
     Args:
         text: The text to analyze
-        lenses: Analysis lenses (maintained for API compatibility)
 
     Returns:
         SynthesisResult containing the complete analysis

@@ -10,7 +10,7 @@ app = FastAPI(title="Narrative Deconstruction Toolkit API", version="6.0.0")
 # Configure CORS - restricting to localhost for development
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:8000", "http://127.0.0.1:8000"],
+    allow_origins=["http://localhost:8000", "http://127.0.0.1:8000", "http://0.0.0.0:8000"],
     allow_credentials=True,
     allow_methods=["GET", "POST"],
     allow_headers=["*"],
@@ -24,9 +24,6 @@ app.include_router(analyze.router, prefix="/api/v1", tags=["Synthesis"])
 async def health_check():
     """Health check endpoint."""
     return {"status": "healthy", "message": "Narrative Deconstruction Toolkit API V6 - Synthesis Engine is running"}
-
-# Serve static files
-app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # Serve the main HTML file at root
 app.mount("/", StaticFiles(directory=".", html=True), name="html")

@@ -29,4 +29,3 @@ class SynthesisResult(BaseModel):
 
 class SynthesisRequest(BaseModel):
     text: str
-    lenses: List[str]  # e.g., ["loaded_language", "omission", "bias_heatmap"]

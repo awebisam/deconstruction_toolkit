@@ -4,93 +4,350 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Deconstruction Toolkit V6</title>
+    <title>Narrative Deconstruction Toolkit</title>
+
+    <!-- Tailwind CSS for styling -->
     <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Google Fonts: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- Custom Styles -->
     <style>
+        /* Use the Inter font family */
         body {
             font-family: 'Inter', sans-serif;
-        }
-
-        .tooltip {
-            position: relative;
-            display: inline;
-            cursor: help;
-        }
-
-        .tooltip .tooltiptext {
-            visibility: hidden;
-            width: 300px;
             background-color: #111827;
-            color: #fff;
-            text-align: left;
-            border-radius: 6px;
-            padding: 10px 14px;
-            position: absolute;
-            z-index: 10;
-            bottom: 130%;
-            left: 50%;
-            margin-left: -150px;
-            opacity: 0;
-            transition: opacity 0.3s;
-            font-size: 0.875rem;
-            line-height: 1.4rem;
-            border: 1px solid #4b5563;
-            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+            /* Dark background */
+            color: #d1d5db;
+            /* Light text */
         }
 
-        .tooltip:hover .tooltiptext {
-            visibility: visible;
-            opacity: 1;
+        /* Custom scrollbar for a cleaner look */
+        ::-webkit-scrollbar {
+            width: 8px;
         }
 
-        .tactic-highlight {
-            border-bottom: 2px dotted;
+        ::-webkit-scrollbar-track {
+            background: #1f2937;
         }
 
-        .tactic-loaded_language {
-            border-color: #f59e0b;
+        ::-webkit-scrollbar-thumb {
+            background: #4b5563;
+            border-radius: 4px;
         }
 
-        /* Amber */
-        .tactic-sales_tactics {
-            border-color: #10b981;
+        ::-webkit-scrollbar-thumb:hover {
+            background: #6b7280;
         }
 
-        /* Green */
+        /* Animation for results appearing */
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .fade-in {
+            animation: fadeIn 0.5s ease-out forwards;
+        }
+
+        /* Style for dynamic textarea */
+        #text-input {
+            min-height: 4rem;
+            /* Start height */
+        }
     </style>
 </head>
 
-<body class="bg-gray-900 text-gray-200 flex flex-col items-center min-h-screen p-4 sm:p-6 md:p-8">
+<body class="antialiased">
 
-    <div class="w-full max-w-4xl">
-        <header class="text-center mb-8">
-            <h1 class="text-3xl sm:text-4xl font-bold text-gray-100">Deconstruction Synthesis Engine</h1>
-            <p class="text-gray-400 mt-2">V6: A Unified Analysis Experience</p>
-        </header>
+    <div class="min-h-screen flex flex-col items-center justify-center p-4 sm:p-6 lg:p-8">
+        <div class="w-full max-w-4xl mx-auto">
 
-        <main class="w-full bg-gray-800 border border-gray-700 rounded-lg p-6 shadow-2xl">
-            <div>
-                <label for="text-input" class="block text-lg font-semibold mb-2 text-gray-300">Enter Text for
-                    Synthesis</label>
-                <textarea id="text-input" rows="10"
-                    class="w-full bg-gray-900 border border-gray-600 rounded-md p-4 text-gray-200 focus:ring-2 focus:ring-yellow-500 focus:outline-none transition-shadow"
-                    placeholder="Paste text here..."></textarea>
-                <div class="mt-4 grid grid-cols-2 gap-3">
-                    <button id="analyze-btn"
-                        class="bg-yellow-600 hover:bg-yellow-700 text-white font-bold py-3 px-4 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed">Synthesize</button>
-                    <button id="reset-btn"
-                        class="bg-gray-600 hover:bg-gray-700 text-white font-bold py-3 px-4 rounded-md transition-colors">Reset</button>
+            <!-- Header Section -->
+            <header class="text-center mb-8">
+                <h1 class="text-3xl sm:text-4xl font-bold text-white">Narrative Deconstruction Toolkit</h1>
+                <p class="mt-2 text-lg text-gray-400">Uncover hidden biases, tactics, and omissions in any text.</p>
+            </header>
+
+            <!-- Main Application Area -->
+            <main id="app"
+                class="bg-gray-900/50 backdrop-blur-sm rounded-2xl shadow-2xl shadow-black/20 ring-1 ring-white/10">
+                <div class="p-6 sm:p-8">
+                    <!-- Input Section -->
+                    <div>
+                        <label for="text-input" class="block text-sm font-medium text-gray-300 mb-2">Enter text to
+                            analyze:</label>
+                        <textarea id="text-input" rows="1"
+                            class="w-full p-4 bg-gray-800 border border-gray-700 rounded-lg text-gray-200 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition duration-150 resize-y"></textarea>
+                    </div>
+
+                    <!-- Action Button -->
+                    <div class="mt-6 text-center">
+                        <button id="analyze-button"
+                            class="w-full sm:w-auto bg-indigo-600 text-white font-semibold py-3 px-8 rounded-lg shadow-md hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 focus:ring-offset-gray-900 transition-all duration-200 ease-in-out transform hover:scale-105 disabled:opacity-50 disabled:cursor-wait disabled:scale-100">
+                            <span id="button-text">Analyze Text</span>
+                            <span id="button-spinner" class="hidden">
+                                <svg class="animate-spin -ml-1 mr-3 h-5 w-5 inline-block text-white"
+                                    xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor"
+                                        stroke-width="4"></circle>
+                                    <path class="opacity-75" fill="currentColor"
+                                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z">
+                                    </path>
+                                </svg>
+                                Analyzing...
+                            </span>
+                        </button>
+                    </div>
                 </div>
-            </div>
 
-            <div id="results-container" class="mt-8">
-                <!-- Unified results view will be rendered here -->
-            </div>
-        </main>
+                <!-- Results Section -->
+                <div id="results-container" class="p-6 sm:p-8 border-t border-gray-700/50">
+                    <!-- Placeholder will be replaced by results -->
+                    <div class="text-center text-gray-500">
+                        <p>Your analysis results will appear here.</p>
+                    </div>
+                </div>
+            </main>
+
+            <!-- Footer -->
+            <footer class="text-center mt-8 text-gray-500 text-sm">
+                <p>Powered by the Deconstruction Toolkit Engine</p>
+            </footer>
+        </div>
     </div>
 
-    <script src="/static/js/synthesis.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // DOM Elements
+            const textInput = document.getElementById('text-input');
+            const analyzeButton = document.getElementById('analyze-button');
+            const buttonText = document.getElementById('button-text');
+            const buttonSpinner = document.getElementById('button-spinner');
+            const resultsContainer = document.getElementById('results-container');
+
+            // --- Initial Setup ---
+            textInput.value = `Every country, every piece of land, has the raw potential for a happy, satisfied life. But the moment external hands start extracting resources without contributing to local development.. boom, the whole balance shatters. Now let’s play fair. Assume nation-states are real. Tangible. The rightful owners of the land within their borders. That’s the common-sense view, right? So if “progress” exists, it’s only valid under the assumption that nations are using their resources well and running their ideologies efficiently. But that’s where things get spicy because not everyone wants the same life. Cue the arrival of economic and political ideology. And when ideals start mass-producing aspirations, you’ve got yourself a system of control.`;
+            // Auto-resize textarea on initial load
+            textInput.style.height = textInput.scrollHeight + 'px';
+
+
+            // --- Event Listeners ---
+            analyzeButton.addEventListener('click', handleAnalysis);
+
+            textInput.addEventListener('input', () => {
+                textInput.style.height = 'auto';
+                textInput.style.height = textInput.scrollHeight + 'px';
+            });
+
+            // --- Core Functions ---
+            async function handleAnalysis() {
+                const text = textInput.value.trim();
+                if (!text) {
+                    showError("Please enter some text to analyze.");
+                    return;
+                }
+
+                setLoading(true);
+                resultsContainer.innerHTML = '';
+
+                try {
+                    const response = await fetch('/api/v1/synthesize', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ text: text }),
+                    });
+
+                    if (!response.ok) {
+                        const errorData = await response.json().catch(() => ({ detail: 'An unknown error occurred.' }));
+                        throw new Error(errorData.detail || `HTTP error! status: ${response.status}`);
+                    }
+
+                    const data = await response.json();
+                    renderResults(data);
+
+                    textInput.value = '';
+                    textInput.style.height = 'auto';
+
+                } catch (error) {
+                    console.error('Analysis failed:', error);
+                    showError(error.message);
+                } finally {
+                    setLoading(false);
+                }
+            }
+
+            function setLoading(isLoading) {
+                analyzeButton.disabled = isLoading;
+                buttonText.classList.toggle('hidden', isLoading);
+                buttonSpinner.classList.toggle('hidden', !isLoading);
+            }
+
+            function showError(message) {
+                resultsContainer.innerHTML = `
+                    <div class="text-center text-red-400 p-4 bg-red-900/20 rounded-lg fade-in">
+                        <h3 class="font-bold text-lg">Analysis Error</h3>
+                        <p>${message}</p>
+                    </div>
+                `;
+            }
+
+            function renderResults(data) {
+                resultsContainer.innerHTML = `
+                ${renderAssumptions(data.foundational_assumptions)}
+                    ${renderFullAnalyzedText(data.synthesized_text)}
+                    ${renderOmissions(data.omissions)}
+                `;
+            }
+
+            function renderLegend() {
+                return `
+                    <div class="mb-4 p-3 bg-gray-800/50 rounded-lg text-xs sm:text-sm flex items-center gap-x-4 flex-wrap">
+                        <h4 class="font-semibold text-white mr-2">Legend:</h4>
+                        <div class="flex items-center gap-x-2"><span class="px-2 py-0.5 rounded bg-red-500/10">Text</span>/<span class="px-2 py-0.5 rounded bg-green-500/10">Text</span><span class="text-gray-400">= Biased</span></div>
+                        <div class="flex items-center gap-x-2"><span class="text-yellow-300 underline decoration-dotted decoration-yellow-400/50 underline-offset-2">Text</span><span class="text-gray-400">= Tactic</span></div>
+                        <div class="flex items-center gap-x-2"><span class="text-gray-300">Hover any sentence for details.</span></div>
+                    </div>
+                `;
+            }
+
+            function createUnifiedTooltipHTML(sentenceData) {
+                const { bias_score, justification, tactics } = sentenceData;
+                const tacticsExist = tactics && tactics.length > 0;
+                let tacticsHTML = '';
+
+                if (tacticsExist) {
+                    tacticsHTML = `
+                        <div class="mt-3 pt-3 border-t border-gray-700">
+                            <h4 class="font-semibold text-gray-300 mb-2">Rhetorical Tactics Found</h4>
+                            <div class="space-y-2">
+                                ${tactics.map(t => `
+                                    <div class="p-2 bg-gray-900/50 rounded-md">
+                                        <p class="font-semibold text-yellow-300">“${t.phrase}”</p>
+                                        <p class="text-xs text-gray-400 mt-1"><strong class="text-gray-300">${t.tactic} (${t.type}):</strong> ${t.explanation}</p>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    `;
+                }
+
+                return `
+                    <div class="absolute bottom-full z-10 mb-2 w-80 p-3 bg-gray-950 ring-1 ring-gray-700 rounded-lg text-sm text-left opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none -translate-x-1/2 left-1/2">
+                        <div class="flex items-center space-x-3">
+                            <span class="font-medium text-gray-400">Bias:</span>
+                            <div class="w-20 h-1.5 bg-gray-700 rounded-full overflow-hidden">
+                                <div class="h-full rounded-full" style="${getBiasBarStyle(bias_score)}"></div>
+                            </div>
+                            <span class="font-semibold text-xs" style="color: ${getBiasColor(bias_score)}">${bias_score.toFixed(1)}</span>
+                        </div>
+                        <p class="text-xs text-gray-400 mt-1 italic">${justification}</p>
+                        ${tacticsHTML}
+                        <svg class="absolute text-gray-950 h-2 w-full left-0 top-full" x="0px" y="0px" viewBox="0 0 255 255" xml:space="preserve"><polygon class="fill-current" points="0,0 127.5,127.5 255,0"/></svg>
+                    </div>
+                `;
+            }
+
+            function renderFullAnalyzedText(sentences) {
+                if (!sentences || sentences.length === 0) return '';
+
+                const fullTextHTML = sentences.map(s => {
+                    // Create the main sentence wrapper with tooltip
+                    const biasThreshold = 0.3;
+                    const hasBias = Math.abs(s.bias_score) > biasThreshold;
+                    const hasTactics = s.tactics && s.tactics.length > 0;
+
+                    let sentenceHTML = s.sentence;
+                    if (hasTactics) {
+                        let tempSentence = s.sentence;
+                        s.tactics.forEach((tactic, index) => {
+                            if (tempSentence.includes(tactic.phrase)) {
+                                tempSentence = tempSentence.replace(tactic.phrase, `<span class="text-yellow-300 underline decoration-dotted decoration-yellow-400/50 underline-offset-2">${tactic.phrase}</span>`);
+                            }
+                        });
+                        sentenceHTML = tempSentence;
+                    }
+
+                    let biasClasses = '';
+                    if (hasBias) {
+                        biasClasses = s.bias_score > 0 ? 'bg-green-500/10' : 'bg-red-500/10';
+                    }
+
+                    return `
+                        <span class="relative group cursor-pointer px-1 py-0.5 rounded ${biasClasses}">
+                            ${sentenceHTML}
+                            ${createUnifiedTooltipHTML(s)}
+                        </span>
+                    `;
+                }).join(' ');
+
+                return `
+                    <div class="mb-8 fade-in" style="animation-delay: 0ms;">
+                        <h2 class="text-2xl font-bold text-white mb-4 border-l-4 border-indigo-400 pl-4">Analyzed Text</h2>
+                        ${renderLegend()}
+                        <div class="p-4 bg-gray-800/50 rounded-lg text-lg leading-relaxed">${fullTextHTML}</div>
+                    </div>
+                 `;
+            }
+
+            function renderAssumptions(assumptions) {
+                if (!assumptions || assumptions.length === 0) return '';
+                return `
+                    <div class="mb-8 fade-in" style="animation-delay: 150ms;">
+                        <h2 class="text-2xl font-bold text-white mb-4 border-l-4 border-indigo-400 pl-4">Foundational Assumptions</h2>
+                        <ul class="space-y-3 list-disc list-inside text-gray-300">
+                            ${assumptions.map(item => `<li>${item}</li>`).join('')}
+                        </ul>
+                    </div>
+                `;
+            }
+
+            function renderOmissions(omissions) {
+                if (!omissions || omissions.length === 0) return '';
+                return `
+                    <div class="fade-in" style="animation-delay: 300ms;">
+                        <h2 class="text-2xl font-bold text-white mb-4 border-l-4 border-indigo-400 pl-4">Significant Omissions</h2>
+                        <div class="space-y-4">
+                            ${omissions.map(item => `
+                                <div class="p-4 bg-gray-800/50 rounded-lg ring-1 ring-gray-700/50">
+                                    <h4 class="font-semibold text-gray-200">${item.omitted_perspective}</h4>
+                                    <p class="text-sm text-gray-400 mt-1"><strong class="font-medium text-gray-300">Potential Impact:</strong> ${item.potential_impact}</p>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+
+            function getBiasColor(score) {
+                if (score > 0.1) return '#4ade80'; // Green
+                if (score < -0.1) return '#f87171'; // Red
+                return '#9ca3af'; // Gray
+            }
+
+            function getBiasBarStyle(score) {
+                const percentage = (score + 1) / 2 * 100;
+                if (score > -0.1 && score < 0.1) {
+                    return `width: 2%; left: 49%; background-color: #9ca3af;`;
+                }
+                if (score > 0) {
+                    return `width: ${percentage - 50}%; left: 50%; background-color: ${getBiasColor(score)};`;
+                } else {
+                    return `width: ${50 - percentage}%; left: ${percentage}%; background-color: ${getBiasColor(score)};`;
+                }
+            }
+        });
+    </script>
 </body>
 
 </html>
