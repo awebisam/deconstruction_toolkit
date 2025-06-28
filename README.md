@@ -38,7 +38,7 @@ deconstruction_toolkit/
 
 ### What You'll Need to Run This Mess
 
--   Python 3.10+ (because why not?) 
+-   Python 3.13+ (because why not?) 
     - If you are still using Python <3.9, how did you get your time machine to work? Seriously, upgrade.
 -   An Azure OpenAI key and endpoint. Or swap it out for another provider in the DSPy config if you're feeling adventurous. I only tested Azure because it gave me some free credits.
     - I also hate azure but money is money, right?
