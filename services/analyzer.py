@@ -3,6 +3,7 @@ import asyncio
 from core import config
 from core.dspy_program import DeconstructionPipeline
 from models.analysis import SynthesisResult, SynthesizedSentence, Omission
+from services.dummy_data import get_dummy_synthesis_result, get_dummy_simple_result
 from typing import List
 
 
@@ -46,6 +47,8 @@ async def run_synthesis_analysis(text: str) -> SynthesisResult:
     """
     Runs the DSPy-based deconstruction analysis pipeline asynchronously.
 
+    If USE_DUMMY_DATA is True, returns dummy data instead of making LLM calls.
+
     Uses DSPy's native async support with the latest version (2.6.27+)
     which includes proper acall() methods and asyncify utility.
 
@@ -55,6 +58,18 @@ async def run_synthesis_analysis(text: str) -> SynthesisResult:
     Returns:
         SynthesisResult containing the complete analysis
     """
+
+    # Check if dummy data should be used
+    if config.USE_DUMMY_DATA:
+        print("Using dummy data instead of LLM analysis...")
+
+        # Return comprehensive dummy data for the default example text
+        # or simpler dummy data for other inputs
+        if "Every country, every piece of land" in text:
+            return get_dummy_synthesis_result(text)
+        else:
+            return get_dummy_simple_result(text)
+
     try:
         print("Starting async DSPy analysis with native support...")
 

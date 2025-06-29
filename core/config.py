@@ -18,6 +18,14 @@ class Settings(BaseSettings):
     azure_openai_api_version: str = Field(
         "2024-02-01", env="AZURE_OPENAI_API_VERSION", description="Azure OpenAI API version")
 
+    # API Protection
+    api_key: Optional[str] = Field(
+        None, env="API_KEY", description="API key for protecting endpoints")
+
+    # Dummy Data Configuration
+    use_dummy_data: bool = Field(
+        True, env="USE_DUMMY_DATA", description="Use dummy data instead of real API calls")
+
     # Server Configuration
     debug: bool = Field(False, env="DEBUG", description="Enable debug mode")
     host: str = Field("0.0.0.0", env="HOST", description="Server host")
@@ -37,3 +45,5 @@ AZURE_OPENAI_ENDPOINT = settings.azure_openai_endpoint
 AZURE_OPENAI_KEY = settings.azure_openai_key
 AZURE_OPENAI_DEPLOYMENT_NAME = settings.azure_openai_deployment_name
 AZURE_OPENAI_API_VERSION = settings.azure_openai_api_version
+API_KEY = settings.api_key
+USE_DUMMY_DATA = settings.use_dummy_data

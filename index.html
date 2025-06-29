@@ -128,7 +128,7 @@
     </div>
 
     <script>
-        document.addEventListener('DOMContentLoaded', () => {
+        document.addEventListener('DOMContentLoaded', async () => {
             // DOM Elements
             const textInput = document.getElementById('text-input');
             const analyzeButton = document.getElementById('analyze-button');
@@ -136,10 +136,105 @@
             const buttonSpinner = document.getElementById('button-spinner');
             const resultsContainer = document.getElementById('results-container');
 
+            // Configuration
+            let appConfig = {
+                use_dummy_data: false,
+                requires_api_key: false
+            };
+
             // --- Initial Setup ---
-            textInput.value = `Every country, every piece of land, has the raw potential for a happy, satisfied life. But the moment external hands start extracting resources without contributing to local development.. boom, the whole balance shatters. Now let’s play fair. Assume nation-states are real. Tangible. The rightful owners of the land within their borders. That’s the common-sense view, right? So if “progress” exists, it’s only valid under the assumption that nations are using their resources well and running their ideologies efficiently. But that’s where things get spicy because not everyone wants the same life. Cue the arrival of economic and political ideology. And when ideals start mass-producing aspirations, you’ve got yourself a system of control.`;
-            // Auto-resize textarea on initial load
-            textInput.style.height = textInput.scrollHeight + 'px';
+            await loadConfiguration();
+            await initializeApplication();
+
+            async function loadConfiguration() {
+                try {
+                    const response = await fetch('/api/v1/config');
+                    if (response.ok) {
+                        appConfig = await response.json();
+                        console.log('App configuration loaded:', appConfig);
+                    }
+                } catch (error) {
+                    console.warn('Could not load configuration, using defaults:', error);
+                }
+            }
+
+            async function initializeApplication() {
+                if (appConfig.use_dummy_data) {
+                    setupDummyDataMode();
+                    await loadDummyData();
+                } else {
+                    setupNormalMode();
+                }
+            }
+
+            function setupDummyDataMode() {
+                // Show demo mode banner
+                const banner = document.createElement('div');
+                banner.className = 'bg-blue-600/20 border border-blue-500/30 rounded-lg p-4 mb-6 text-center';
+                banner.innerHTML = `
+                    <div class="flex items-center justify-center gap-2 text-blue-300">
+                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"></path>
+                        </svg>
+                        <span class="font-semibold">Demo Mode</span>
+                    </div>
+                    <p class="text-sm text-blue-200 mt-2">You're viewing pre-generated analysis results. The input box is disabled to prevent new API calls.</p>
+                `;
+
+                // Insert banner before the main content
+                const mainElement = document.querySelector('main');
+                mainElement.parentNode.insertBefore(banner, mainElement);
+
+                // Disable input and button
+                textInput.disabled = true;
+                textInput.placeholder = "Demo mode - input disabled to prevent API calls";
+                textInput.className += ' opacity-50 cursor-not-allowed';
+
+                analyzeButton.disabled = true;
+                analyzeButton.className += ' opacity-50 cursor-not-allowed';
+                buttonText.textContent = 'Demo Mode - Analysis Disabled';
+
+                // Set sample text for display
+                textInput.value = `Every country, every piece of land, has the raw potential for a happy, satisfied life. But the moment external hands start extracting resources without contributing to local development.. boom, the whole balance shatters. Now let's play fair. Assume nation-states are real. Tangible. The rightful owners of the land within their borders. That's the common-sense view, right? So if "progress" exists, it's only valid under the assumption that nations are using their resources well and running their ideologies efficiently. But that's where things get spicy because not everyone wants the same life. Cue the arrival of economic and political ideology. And when ideals start mass-producing aspirations, you've got yourself a system of control.`;
+                textInput.style.height = textInput.scrollHeight + 'px';
+            }
+
+            function setupNormalMode() {
+                textInput.value = `Every country, every piece of land, has the raw potential for a happy, satisfied life. But the moment external hands start extracting resources without contributing to local development.. boom, the whole balance shatters. Now let's play fair. Assume nation-states are real. Tangible. The rightful owners of the land within their borders. That's the common-sense view, right? So if "progress" exists, it's only valid under the assumption that nations are using their resources well and running their ideologies efficiently. But that's where things get spicy because not everyone wants the same life. Cue the arrival of economic and political ideology. And when ideals start mass-producing aspirations, you've got yourself a system of control.`;
+
+                // Auto-resize textarea on initial load
+                textInput.style.height = textInput.scrollHeight + 'px';
+            }
+
+            async function loadDummyData() {
+                // Show loading state
+                setLoading(true);
+                resultsContainer.innerHTML = '';
+
+                try {
+                    // Use the sample text to get comprehensive dummy data
+                    const sampleText = `Every country, every piece of land, has the raw potential for a happy, satisfied life. But the moment external hands start extracting resources without contributing to local development.. boom, the whole balance shatters. Now let's play fair. Assume nation-states are real. Tangible. The rightful owners of the land within their borders. That's the common-sense view, right? So if "progress" exists, it's only valid under the assumption that nations are using their resources well and running their ideologies efficiently. But that's where things get spicy because not everyone wants the same life. Cue the arrival of economic and political ideology. And when ideals start mass-producing aspirations, you've got yourself a system of control.`;
+
+                    const response = await fetch('/api/v1/synthesize', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ text: sampleText }),
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+
+                    const data = await response.json();
+                    renderResults(data);
+
+                } catch (error) {
+                    console.error('Failed to load dummy data:', error);
+                    showError('Failed to load demonstration data.');
+                } finally {
+                    setLoading(false);
+                }
+            }
 
 
             // --- Event Listeners ---
@@ -152,6 +247,12 @@
 
             // --- Core Functions ---
             async function handleAnalysis() {
+                // Prevent analysis in dummy data mode
+                if (appConfig.use_dummy_data) {
+                    showError("Analysis is disabled in demo mode to prevent API calls.");
+                    return;
+                }
+
                 const text = textInput.value.trim();
                 if (!text) {
                     showError("Please enter some text to analyze.");
@@ -162,9 +263,20 @@
                 resultsContainer.innerHTML = '';
 
                 try {
+                    const headers = { 'Content-Type': 'application/json' };
+
+                    // Add API key if required
+                    if (appConfig.requires_api_key) {
+                        const apiKey = prompt("Please enter your API key:");
+                        if (!apiKey) {
+                            throw new Error("API key is required for analysis.");
+                        }
+                        headers['Authorization'] = `Bearer ${apiKey}`;
+                    }
+
                     const response = await fetch('/api/v1/synthesize', {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
+                        headers: headers,
                         body: JSON.stringify({ text: text }),
                     });
 

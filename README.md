@@ -154,6 +154,104 @@ A word of warning: LLM calls cost money, and I'm not made of it. If this thing g
 }
 ```
 
+### Demo Mode / Dummy Data
+
+Perfect for showing off without burning through your API credits. This is especially useful when deploying to places where you want people to see the functionality without allowing new API calls.
+
+**Enable Demo Mode:**
+
+Set this in your `.env` file:
+```env
+USE_DUMMY_DATA=True
+```
+
+**What happens in Demo Mode:**
+- The input box gets disabled with a clear "Demo Mode" banner
+- Pre-generated, comprehensive analysis results are automatically loaded
+- No API calls are made to Azure OpenAI (saves money!)
+- Users can explore the full functionality without cost
+
+**API Key Protection:**
+
+When demo mode is disabled (`USE_DUMMY_DATA=False`), you can protect the API with a key:
+
+```env
+USE_DUMMY_DATA=False
+API_KEY=your-secret-api-key-here
+```
+
+With API key protection enabled:
+- Users must provide the API key in the `Authorization` header as `Bearer token`
+- Frontend will prompt for the API key when needed
+- Prevents unauthorized usage when deployed publicly
+
+**Configuration Examples:**
+
+```env
+# For public demos (recommended for Azure deployments)
+USE_DUMMY_DATA=True
+API_KEY=your-secret-api-key-here
+
+# For protected production use
+USE_DUMMY_DATA=False  
+API_KEY=your-secret-api-key-here
+
+# For local development (no protection)
+USE_DUMMY_DATA=False
+# API_KEY= (leave empty or comment out)
+```
+
+**Demo Data Features:**
+
+The dummy data includes realistic examples of:
+- Sentence-level bias analysis with scores (-1.0 to 1.0)
+- Rhetorical tactic identification (loaded language, false premises, etc.)
+- Foundational assumption extraction
+- Significant omission analysis
+- Interactive tooltips with detailed explanations
+
+### Azure Deployment Recommendations
+
+For cost-effective Azure deployment:
+
+**1. Use Demo Mode by Default**
+```env
+USE_DUMMY_DATA=True
+API_KEY=strong-random-key-here
+```
+
+**2. Container Deployment (Azure Container Instances)**
+```dockerfile
+# Dockerfile (create this in your project root)
+FROM python:3.13-slim
+
+WORKDIR /app
+COPY requirements.txt .
+RUN pip install -r requirements.txt
+
+COPY . .
+EXPOSE 8000
+
+CMD ["python", "main.py"]
+```
+
+**3. Environment Variables in Azure**
+Set these in your Azure Container Instance or App Service:
+- `USE_DUMMY_DATA=True`
+- `API_KEY=your-secret-key`
+- `HOST=0.0.0.0`
+- `PORT=8000`
+
+**4. For Production Use (with real LLM calls)**
+- Set `USE_DUMMY_DATA=False`
+- Configure all Azure OpenAI variables
+- Set a strong `API_KEY`
+- Monitor costs closely!
+
+**Cost Savings:**
+- Demo mode = $0 per analysis
+- Real mode = ~$0.01-0.05 per analysis (depending on text length and model)
+
 ### You Want to Contribute? Seriously?
 
 Fine. If you find a bug or have an idea, open an issue or a pull request. I'll ignore it proudly. But why not fix it yourself? I mean, it's not like I'm paying you but vibecoding is free, right?
